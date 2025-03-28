@@ -12,20 +12,13 @@ use Ownego\Cashier\Exceptions\PaypalException;
 
 class Cashier
 {
-    /**
-     * @var string|null
-     */
     protected ?string $accessToken = null;
 
-    /**
-     * @var Carbon|null
-     */
     protected ?Carbon $accessTokenExpiresAt = null;
 
-    /**
-     * @var string
-     */
     public static string $subscriptionModel = Subscription::class;
+
+    public static bool $registerRoutes = true;
 
     /**
      * Populate access token

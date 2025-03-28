@@ -3,6 +3,7 @@
 namespace Ownego\Cashier;
 
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class CashierServiceProvider extends ServiceProvider
@@ -14,18 +15,12 @@ class CashierServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'ownego');
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'cashier');
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
-        // $this->loadRoutesFrom(__DIR__.'/routes.php');
-        Blade::directive('paypalJS', function () {
-            return "<?php echo view('cashier::js'); ?>";
-        });
-
-        // Publishing is only necessary when using the CLI.
-        if ($this->app->runningInConsole()) {
-            $this->bootForConsole();
-        }
+        $this->bootRoutes();
+        $this->bootCommands();
+        $this->bootResources();
+        $this->bootDirectives();
+        $this->bootMigrations();
+        $this->bootPublishing();
     }
 
     /**
@@ -53,39 +48,57 @@ class CashierServiceProvider extends ServiceProvider
         return ['cashier'];
     }
 
-    /**
-     * Console-specific booting.
-     *
-     * @return void
-     */
-    protected function bootForConsole(): void
+    protected function bootResources()
     {
-        // Publishing the configuration file.
-        $this->publishes([
-            __DIR__ . '/../config/cashier.php' => config_path('cashier.php'),
-        ], 'cashier-config');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'cashier');
+    }
 
-        // Publishing the views.
-        /*$this->publishes([
-            __DIR__.'/../resources/views' => base_path('resources/views/vendor/ownego'),
-        ], 'cashier-paypal.views');*/
+    protected function bootDirectives()
+    {
+        Blade::directive('paypalJS', function () {
+            return "<?php echo view('cashier::js'); ?>";
+        });
+    }
 
-        // Publishing assets.
-        /*$this->publishes([
-            __DIR__.'/../resources/assets' => public_path('vendor/ownego'),
-        ], 'cashier-paypal.assets');*/
+    protected function bootRoutes()
+    {
+        if (Cashier::$registerRoutes) {
+            Route::group([
+                'prefix' => config('cashier.path'),
+                'as' => 'cashier.',
+            ], function () {
+                $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+            });
+        }
+    }
 
-        // Publishing the translation files.
-        /*$this->publishes([
-            __DIR__.'/../resources/lang' => resource_path('lang/vendor/ownego'),
-        ], 'cashier-paypal.lang');*/
+    protected function bootMigrations()
+    {
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+    }
 
-        // Registering package commands.
-        $this->commands([
-            Console\CreateProductCommand::class,
-            Console\ListProductCommand::class,
-            Console\ListPlanCommand::class,
-            Console\ShowPlanCommand::class,
-        ]);
+    protected function bootPublishing()
+    {
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__ . '/../config/cashier.php' => $this->app->configPath('cashier.php'),
+            ], 'cashier-config');
+
+            $this->publishes([
+                __DIR__ . '/../database/migrations' => $this->app->databasePath('migrations'),
+            ], 'cashier-migrations');
+        }
+    }
+
+    protected function bootCommands()
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                Console\CreateProductCommand::class,
+                Console\ListProductCommand::class,
+                Console\ListPlanCommand::class,
+                Console\ShowPlanCommand::class,
+            ]);
+        }
     }
 }

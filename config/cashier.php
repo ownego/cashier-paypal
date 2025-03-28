@@ -11,4 +11,6 @@ return [
     'currency' => env('CASHIER_CURRENCY', 'USD'),
     'locale' => env('CASHIER_LOCALE', 'en-US'),
 
+    'path' => env('CASHIER_PATH', 'cashier'),
+
 ];
