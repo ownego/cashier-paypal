@@ -7,15 +7,25 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 use Ownego\Cashier\Cashier;
+use Ownego\Cashier\Events\SubscriptionActivated;
 use Ownego\Cashier\Events\SubscriptionCancelled;
+use Ownego\Cashier\Events\SubscriptionCreated;
 use Ownego\Cashier\Events\SubscriptionExpired;
 use Ownego\Cashier\Events\SubscriptionPaused;
 use Ownego\Cashier\Events\WebhookHandled;
 use Ownego\Cashier\Events\WebhookReceived;
+use Ownego\Cashier\Http\Middleware\VerifyWebhookSignature;
 use Symfony\Component\HttpFoundation\Response;
 
 class WebhookController extends Controller
 {
+    public function __construct()
+    {
+        if (config('cashier.webhook_id') !== null) {
+            $this->middleware(VerifyWebhookSignature::class);
+        }
+    }
+
     public function __invoke(Request $request)
     {
         $payload = $request->all();
@@ -43,7 +53,7 @@ class WebhookController extends Controller
             return;
         }
 
-        if (! $billable = $this->findBillable($resource['subscriber']['email'])) {
+        if (! $billable = $this->findBillable($resource['subscriber']['email_address'])) {
             return;
         }
 
@@ -52,8 +62,28 @@ class WebhookController extends Controller
             'paypal_plan_id' => $resource['plan_id'],
             'status' => $resource['status'],
             'quantity' => $resource['quantity'],
-
+            'trial_ends_at' => null,
+            'paused_at' => null,
+            'ends_at' => null,
         ]);
+
+        SubscriptionCreated::dispatch($subscription, $payload);
+    }
+
+    public function handleBillingSubscriptionActivated($payload)
+    {
+        $resource = $payload['resource'];
+
+        if (! $subscription = $this->findSubscription($resource['id'])) {
+            return;
+        }
+
+        $subscription->status = $resource['status'];
+        $subscription->paused_at = null;
+        $subscription->ends_at = null;
+        $subscription->save();
+
+        SubscriptionActivated::dispatch($subscription, $payload);
     }
 
     public function handleBillingSubscriptionExpired($payload)
@@ -126,8 +156,8 @@ class WebhookController extends Controller
         return Cashier::$subscriptionModel::firstWhere('paypal_id', $paypalId);
     }
 
-    public function findBillable($paypalId)
+    public function findBillable($email)
     {
-        return Cashier::findBillable($paypalId);
+        return Cashier::findBillable($email);
     }
 }

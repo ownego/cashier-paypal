@@ -16,23 +16,16 @@ class SubscriptionBuilder
 
     public function checkout(array $options = [])
     {
-        $payload = [
-            'plan_id' => $this->planId,
-            'quantity' => $this->quantity,
-            'subscriber' => [
-                'email_address' => $this->billable->email,
+        return $this->billable->charge(
+            $this->planId,
+            $this->quantity,
+            [
+                'application_context' => [
+                    'return_url' => $options['success_url'] ?? route('home'),
+                    'cancel_url' => $options['cancel_url'] ?? route('home'),
+                ]
             ],
-            'application_context' => array_merge([
-                'brand_name' => config('cashier.brand_name'),
-                'locale' => config('cashier.locale'),
-                'return_url' => $options['success_url'] ?? route('home'),
-                'cancel_url' => $options['cancel_url'] ?? route('home'),
-            ], $options['application_context'] ?? []),
-        ];
-
-        $response = Cashier::api('post', 'billing/subscriptions', $payload);
-
-        return $this->redirect($response);
+        );
     }
 
     public function redirect(Response $response): RedirectResponse

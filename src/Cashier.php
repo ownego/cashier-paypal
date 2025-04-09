@@ -16,6 +16,8 @@ class Cashier
 
     protected ?Carbon $accessTokenExpiresAt = null;
 
+    public static string $customerModel = Customer::class;
+
     public static string $subscriptionModel = Subscription::class;
 
     public static bool $registerRoutes = true;
@@ -146,5 +148,15 @@ class Cashier
     public static function useSubscriptionModel(string $model): void
     {
         static::$subscriptionModel = $model;
+    }
+
+    public static function useCustomerModel(string $model): void
+    {
+        static::$customerModel = $model;
+    }
+
+    public static function findBillable($email)
+    {
+        return (new static::$customerModel)->where('email', $email)->first()?->billable;
     }
 }

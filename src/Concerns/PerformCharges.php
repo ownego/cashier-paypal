@@ -10,11 +10,23 @@ use Ownego\Cashier\SubscriptionBuilder;
 trait PerformCharges
 {
     /**
-     * Create a new subscription
+     * Subscribe
      *
      * @throws PaypalException
      */
     public function subscribe(string $subscriptionId)
+    {
+        $this->createAsCustomer();
+
+        return $this->createSubscription($subscriptionId);
+    }
+
+    /**
+     * Create a new subscription
+     *
+     * @throws PaypalException
+     */
+    public function createSubscription(string $subscriptionId)
     {
         $paypalSubscription = new PaypalSubscription(Cashier::api('get', "billing/subscriptions/$subscriptionId")
             ->json());
@@ -28,7 +40,7 @@ trait PerformCharges
             ->first();
 
         if ($existedSubscription && !$existedSubscription->ownedBy($this)) {
-            throw new \Exception('Subscription already exists');
+            return $existedSubscription;
         }
 
         return $this->subscriptions()->updateOrCreate(
@@ -43,6 +55,27 @@ trait PerformCharges
                 'ends_at' => null,
             ]
         );
+    }
+
+    public function charge($planId, $quantity, array $options = [])
+    {
+        $customer = $this->createAsCustomer();
+
+        $response = Cashier::api('post', 'billing/subscriptions',
+            array_replace_recursive([
+                'plan_id' => $planId,
+                'quantity' => $quantity,
+                'subscriber' => [
+                    'email_address' => $customer->email,
+                ],
+                'application_context' => [
+                    'brand_name' => config('cashier.brand_name'),
+                    'locale' => config('cashier.locale'),
+                ],
+            ], $options)
+        );
+
+        return $this->redirect($response);
     }
 
     public function newSubscription($planId, $quantity = 1)
