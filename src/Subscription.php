@@ -131,7 +131,7 @@ class Subscription extends Model
 
     public function resume($reason = null): static
     {
-        Cashier::api('POST', "billing/subscriptions/$this->paypal_id/activate", $reason ? ['reason' => $reason] : null)->dd();
+        Cashier::api('POST', "billing/subscriptions/$this->paypal_id/activate", $reason ? ['reason' => $reason] : null);
 
         $paypalSubscription = $this->getPaypalSubscription();
 

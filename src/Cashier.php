@@ -4,7 +4,6 @@ namespace Ownego\Cashier;
 
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -101,7 +100,6 @@ class Cashier
             ->asJson()
             ->withToken(app('cashier')->getAccessToken())
             ->$method(static::apiUrl().'/'.$uri, $payload);
-        $response->dd();
 
         if ($response->clientError()) {
             throw new PaypalException(
