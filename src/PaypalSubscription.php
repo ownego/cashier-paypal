@@ -3,13 +3,14 @@
 namespace Ownego\Cashier;
 
 use Carbon\Carbon;
+use Illuminate\Support\Arr;
 use Ownego\Cashier\Enums\PaypalSubscriptionStatus;
 
 class PaypalSubscription implements \ArrayAccess
 {
     public function __construct(protected array $data) {}
 
-    public function trialEndsAt(): ?string
+    public function trialEndsAt(): ?Carbon
     {
         $trialCycleExecution = $this->getCycleExecution('TRIAL');
 
@@ -23,7 +24,7 @@ class PaypalSubscription implements \ArrayAccess
             return null;
         }
 
-        return new Carbon($this->nextBillingTime());
+        return $this->nextBillingTime();
     }
 
     protected function hasTrialCycle(): bool
@@ -49,9 +50,15 @@ class PaypalSubscription implements \ArrayAccess
         return $this->data['status'] === PaypalSubscriptionStatus::ACTIVE->value;
     }
 
-    public function nextBillingTime(): ?string
+    public function nextBillingTime(): ?Carbon
     {
-        return $this->data['billing_info']['next_billing_time'];
+        $nextBillingTime = Arr::get($this->data, 'billing_info.next_billing_time');
+
+        if ($nextBillingTime) {
+            return Carbon::parse($nextBillingTime, 'UTC');
+        }
+
+        return null;
     }
 
     public function getData(): array

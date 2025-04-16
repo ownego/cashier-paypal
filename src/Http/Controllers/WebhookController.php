@@ -15,6 +15,7 @@ use Ownego\Cashier\Events\SubscriptionPaused;
 use Ownego\Cashier\Events\WebhookHandled;
 use Ownego\Cashier\Events\WebhookReceived;
 use Ownego\Cashier\Http\Middleware\VerifyWebhookSignature;
+use Ownego\Cashier\PaypalSubscription;
 use Symfony\Component\HttpFoundation\Response;
 
 class WebhookController extends Controller
@@ -57,9 +58,12 @@ class WebhookController extends Controller
             return;
         }
 
+        $paypalPlan = Cashier::api('get', 'billing/plans/'.$resource['plan_id'])->json();
+
         $subscription = $billable->subscriptions()->create([
             'paypal_id' => $resource['id'],
-            'paypal_plan_id' => $resource['plan_id'],
+            'paypal_plan_id' => $paypalPlan['id'],
+            'paypal_product_id' => $paypalPlan['product_id'],
             'status' => $resource['status'],
             'quantity' => $resource['quantity'],
             'trial_ends_at' => null,
@@ -105,6 +109,7 @@ class WebhookController extends Controller
     public function handleBillingSubscriptionCancelled($payload)
     {
         $resource = $payload['resource'];
+        $paypalSubscription = new PaypalSubscription($payload['resource']);
 
         if (! $subscription = $this->findSubscription($resource['id'])) {
             return;
@@ -112,7 +117,7 @@ class WebhookController extends Controller
 
         $subscription->status = $resource['status'];
         $subscription->paused_at = null;
-        $subscription->ends_at = Carbon::parse($resource['billing_info']['next_billing_time'], 'UTC');
+        $subscription->ends_at = $subscription->onTrial() ? $subscription->trial_ends_at : $paypalSubscription->nextBillingTime();
         $subscription->save();
 
         SubscriptionCancelled::dispatch($subscription, $payload);

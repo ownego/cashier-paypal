@@ -28,8 +28,7 @@ trait PerformCharges
      */
     public function createSubscription(string $subscriptionId)
     {
-        $paypalSubscription = new PaypalSubscription(Cashier::api('get', "billing/subscriptions/$subscriptionId")
-            ->json());
+        $paypalSubscription = new PaypalSubscription(Cashier::api('get', "billing/subscriptions/$subscriptionId")->json());
 
         if (!$paypalSubscription->active()) {
             throw new \Exception('Subscription is not active');
@@ -40,15 +39,18 @@ trait PerformCharges
             ->first();
 
         if ($existedSubscription && !$existedSubscription->ownedBy($this)) {
-            return $existedSubscription;
+            throw new \Exception('Subscription already exists for another user');
         }
+
+        $paypalPlan = Cashier::api('get', "billing/plans/{$paypalSubscription['plan_id']}")->json();
 
         return $this->subscriptions()->updateOrCreate(
             [
                 'paypal_id' => $subscriptionId,
             ],
             [
-                'paypal_plan_id' => $paypalSubscription['plan_id'],
+                'paypal_product_id' => $paypalPlan['product_id'],
+                'paypal_plan_id' => $paypalPlan['id'],
                 'status' => $paypalSubscription['status'],
                 'quantity' => $paypalSubscription['quantity'],
                 'trial_ends_at' => $paypalSubscription->trialEndsAt(),
@@ -61,7 +63,7 @@ trait PerformCharges
     {
         $customer = $this->createAsCustomer();
 
-        $response = Cashier::api('post', 'billing/subscriptions',
+        return Cashier::api('post', 'billing/subscriptions',
             array_replace_recursive([
                 'plan_id' => $planId,
                 'quantity' => $quantity,
@@ -74,8 +76,6 @@ trait PerformCharges
                 ],
             ], $options)
         );
-
-        return $this->redirect($response);
     }
 
     public function newSubscription($planId, $quantity = 1)

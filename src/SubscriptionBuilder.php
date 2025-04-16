@@ -16,7 +16,7 @@ class SubscriptionBuilder
 
     public function checkout(array $options = [])
     {
-        return $this->billable->charge(
+        return $this->redirect($this->billable->charge(
             $this->planId,
             $this->quantity,
             [
@@ -25,7 +25,7 @@ class SubscriptionBuilder
                     'cancel_url' => $options['cancel_url'] ?? route('home'),
                 ]
             ],
-        );
+        ));
     }
 
     public function redirect(Response $response): RedirectResponse

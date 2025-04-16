@@ -13,6 +13,7 @@ return new class extends Migration
             $table->id();
             $table->morphs('billable');
             $table->string('paypal_id')->unique();
+            $table->string('paypal_product_id');
             $table->string('paypal_plan_id');
             $table->string('status');
             $table->unsignedInteger('quantity');

@@ -16,14 +16,33 @@ trait ManageSubscriptions
         return $this->subscriptions()->where('paypal_id', $paypalId)->first();
     }
 
-    public function subscribed($planId = null)
+    public function subscriptionByPlan($paypalPlanId)
     {
-        $query = $this->subscriptions()->valid();
+        return $this->subscriptions()->where('paypal_plan_id', $paypalPlanId)->first();
+    }
 
-        if ($planId) {
-            $query->where('plan_id', $planId);
+    public function subscribed($paypalPlanId)
+    {
+        $subscription = $this->subscriptionByPlan($paypalPlanId);
+
+        return $subscription && $subscription->valid();
+    }
+
+    public function subscribedToProduct($paypalProductId, $paypalPlanId)
+    {
+        $subscription = $this->subscriptionByPlan($paypalPlanId);
+
+        if (!$subscription || !$subscription->valid()) {
+            return false;
         }
 
-        return $query->exists();
+        return $subscription->hasProduct($paypalProductId);
+    }
+
+    public function onTrial($paypalPlanId)
+    {
+        $subscription = $this->subscription($paypalPlanId);
+
+        return $subscription && $subscription->onTrial();
     }
 }
