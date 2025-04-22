@@ -39,10 +39,23 @@ trait ManageSubscriptions
         return $subscription->hasProduct($paypalProductId);
     }
 
-    public function onTrial($paypalPlanId)
+    public function onTrial($paypalPlanId = null): bool
     {
+        if (func_num_args() === 0 && $this->onGenericTrial()) {
+            return true;
+        }
+
         $subscription = $this->subscription($paypalPlanId);
 
         return $subscription && $subscription->onTrial();
+    }
+
+    public function onGenericTrial()
+    {
+        if ($trial_ends_at = $this->trial_ends_at) {
+            return $trial_ends_at->isFuture();
+        }
+
+        return false;
     }
 }
