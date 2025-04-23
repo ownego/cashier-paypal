@@ -20,4 +20,9 @@ return new class extends Migration
             $table->index(['billable_type', 'billable_id', 'email']);
         });
     }
+
+    public function down()
+    {
+        Schema::dropIfExists((new Cashier::$customerModel)->getTable());
+    }
 };
