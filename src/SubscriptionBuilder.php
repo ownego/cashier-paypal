@@ -8,7 +8,7 @@ use Illuminate\Http\Client\Response;
 
 class SubscriptionBuilder
 {
-    protected ?Carbon $startAt;
+    protected ?Carbon $startAt = null;
 
     public function __construct(
         protected $billable,
