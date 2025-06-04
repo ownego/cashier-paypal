@@ -49,7 +49,6 @@ trait PerformCharges
                 'paypal_id' => $subscriptionId,
             ],
             [
-                'paypal_product_id' => $paypalPlan['product_id'],
                 'paypal_plan_id' => $paypalPlan['id'],
                 'status' => $paypalSubscription['status'],
                 'quantity' => $paypalSubscription['quantity'],
@@ -78,8 +77,8 @@ trait PerformCharges
         );
     }
 
-    public function newSubscription($planId, $quantity = 1)
+    public function newSubscription($planId, $type = 'default')
     {
-        return new SubscriptionBuilder($this, $planId, $quantity);
+        return new SubscriptionBuilder($this, $planId, $type);
     }
 }

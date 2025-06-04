@@ -11,9 +11,9 @@ trait ManageSubscriptions
         return $this->morphMany(Cashier::$subscriptionModel, 'billable')->orderByDesc('created_at');
     }
 
-    public function subscription($paypalId)
+    public function subscription($type = 'default')
     {
-        return $this->subscriptions()->where('paypal_id', $paypalId)->first();
+        return $this->subscriptions()->where('type', $type)->first();
     }
 
     public function subscriptionByPlan($paypalPlanId)
@@ -21,11 +21,15 @@ trait ManageSubscriptions
         return $this->subscriptions()->where('paypal_plan_id', $paypalPlanId)->first();
     }
 
-    public function subscribed($paypalPlanId)
+    public function subscribed($type, $paypalPlanId = null)
     {
-        $subscription = $this->subscriptionByPlan($paypalPlanId);
+        $subscription = $this->subscription($type);
 
-        return $subscription && $subscription->valid();
+        if (! $subscription || ! $subscription->valid()) {
+            return false;
+        }
+
+        return ! $paypalPlanId || $subscription->hasPlan($paypalPlanId);
     }
 
     public function subscribedToProduct($paypalProductId, $paypalPlanId)

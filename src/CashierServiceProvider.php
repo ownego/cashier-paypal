@@ -74,7 +74,7 @@ class CashierServiceProvider extends ServiceProvider
 
     protected function bootMigrations()
     {
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        // $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }
 
     protected function bootPublishing()

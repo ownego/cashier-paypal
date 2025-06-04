@@ -15,9 +15,9 @@ class Subscription extends Model
      * @inheritdoc
      */
     protected $fillable = [
+        'type',
         'paypal_id',
         'paypal_plan_id',
-        'paypal_product_id',
         'status',
         'quantity',
         'trial_ends_at',
@@ -43,7 +43,7 @@ class Subscription extends Model
     /**
      * Get valid attribute.
      */
-    public function getValidAttribute(): bool
+    public function valid(): bool
     {
         return $this->status === PaypalSubscriptionStatus::ACTIVE->value
             || ($this->status === PaypalSubscriptionStatus::CANCELLED->value && $this->ends_at && $this->ends_at->isFuture());
@@ -167,7 +167,7 @@ class Subscription extends Model
     /**
      * Pause subscription
      */
-    public function pause($reason): static
+    public function pause($reason = 'User requested'): static
     {
         Cashier::api('POST', "billing/subscriptions/$this->paypal_id/suspend", ['reason' => $reason]);
 
@@ -201,7 +201,7 @@ class Subscription extends Model
     /**
      * Cancel subscription
      */
-    public function cancel($reason): static
+    public function cancel($reason = 'User requested'): static
     {
         $paypalSubscription = $this->getPaypalSubscription();
         $ends_at = $paypalSubscription->nextBillingTime();
@@ -247,13 +247,8 @@ class Subscription extends Model
         return redirect($link['href']);
     }
 
-    /**
-     * Check if the subscription has the given product
-     */
-    public function hasProduct($paypal_product_id): bool
+    public function hasPlan(string $planId): bool
     {
-        $paypal_plan = Cashier::api('GET', "billing/plans/$this->paypal_plan_id")->json();
-
-        return $paypal_plan['product_id'] === $paypal_product_id;
+        return $this->paypal_plan_id === $planId;
     }
 }

@@ -2,24 +2,23 @@
 
 namespace Ownego\Cashier;
 
-use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Client\Response;
 
 class SubscriptionBuilder
 {
-    protected ?Carbon $startAt = null;
+    protected int $quantity = 1;
 
     public function __construct(
         protected $billable,
         protected string $planId,
-        protected int $quantity = 1
+        protected string $type = 'default',
     ) {
     }
 
-    public function startAt(Carbon $startAt): self
+    public function quantity(int $quantity): self
     {
-        $this->startAt = $startAt;
+        $this->quantity = $quantity;
 
         return $this;
     }
@@ -29,11 +28,25 @@ class SubscriptionBuilder
      */
     public function checkout(array $options = []): RedirectResponse
     {
-        return $this->redirect($this->billable->charge(
+        $response = $this->billable->charge(
             $this->planId,
             $this->quantity,
             $this->parseOptions($options),
-        ));
+        );
+
+        if ($response->failed()) {
+            throw new \RuntimeException('Failed to create subscription: '.$response->body());
+        }
+
+        $this->billable->subscriptions()->create([
+            'type' => $this->type,
+            'paypal_id' => $response->json('id'),
+            'paypal_plan_id' => $this->planId,
+            'status' => $response->json('status'),
+            'quantity' => $this->quantity,
+        ]);
+
+        return $this->redirect($response);
     }
 
     /**
@@ -47,10 +60,6 @@ class SubscriptionBuilder
                 'cancel_url' => $options['cancel_url'] ?? route('home'),
             ]
         ];
-
-        if ($this->startAt && $this->startAt->isFuture()) {
-            $payload['start_time'] = $this->startAt->toIso8601String();
-        }
 
         return $payload;
     }

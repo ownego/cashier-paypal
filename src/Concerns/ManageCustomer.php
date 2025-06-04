@@ -3,7 +3,6 @@
 namespace Ownego\Cashier\Concerns;
 
 use Ownego\Cashier\Cashier;
-use Ownego\Cashier\Customer;
 
 trait ManageCustomer
 {

@@ -17,6 +17,8 @@ class Cashier
 
     public static string $customerModel = Customer::class;
 
+    public static string $saleModel = Sale::class;
+
     public static string $subscriptionModel = Subscription::class;
 
     public static bool $registerRoutes = true;
@@ -138,6 +140,28 @@ class Cashier
     }
 
     /**
+     * Use customer model
+     *
+     * @param  string  $model
+     * @return void
+     */
+    public static function useCustomerModel(string $model): void
+    {
+        static::$customerModel = $model;
+    }
+
+    /**
+     * Use sale model
+     *
+     * @param  string  $model
+     * @return void
+     */
+    public static function useSaleModel(string $model): void
+    {
+        static::$saleModel = $model;
+    }
+
+    /**
      * Use subscription model
      *
      * @param  string  $model
@@ -146,15 +170,5 @@ class Cashier
     public static function useSubscriptionModel(string $model): void
     {
         static::$subscriptionModel = $model;
-    }
-
-    public static function useCustomerModel(string $model): void
-    {
-        static::$customerModel = $model;
-    }
-
-    public static function findBillable($email)
-    {
-        return (new static::$customerModel)->where('email', $email)->first()?->billable;
     }
 }
