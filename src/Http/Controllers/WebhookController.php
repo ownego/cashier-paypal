@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 use Ownego\Cashier\Cashier;
+use Ownego\Cashier\Events\SaleCompleted;
+use Ownego\Cashier\Events\SaleRefunded;
+use Ownego\Cashier\Events\SaleReversed;
 use Ownego\Cashier\Events\SubscriptionActivated;
 use Ownego\Cashier\Events\SubscriptionCancelled;
 use Ownego\Cashier\Events\SubscriptionCreated;
@@ -46,35 +49,36 @@ class WebhookController extends Controller
         return new Response();
     }
 
-    public function handleBillingSubscriptionCreated($payload)
+    protected function handleBillingSubscriptionCreated($payload)
     {
         $resource = $payload['resource'];
 
-        if ($this->subscriptionExists($resource['id'])) {
-            return;
-        }
+        $billable = $this->findBillable($resource['subscriber']['email_address']);
 
-        if (! $billable = $this->findBillable($resource['subscriber']['email_address'])) {
+        if (! $billable) {
             return;
         }
 
         $paypalPlan = Cashier::api('get', 'billing/plans/'.$resource['plan_id'])->json();
 
-        $subscription = $billable->subscriptions()->create([
-            'paypal_id' => $resource['id'],
-            'paypal_plan_id' => $paypalPlan['id'],
-            'paypal_product_id' => $paypalPlan['product_id'],
-            'status' => $resource['status'],
-            'quantity' => $resource['quantity'],
-            'trial_ends_at' => null,
-            'paused_at' => null,
-            'ends_at' => null,
-        ]);
+        $subscription = $billable->subscriptions()->updateOrCreate(
+            [
+                'paypal_id' => $resource['id'],
+            ],
+            [
+                'paypal_plan_id' => $paypalPlan['id'],
+                'status' => $resource['status'],
+                'quantity' => $resource['quantity'],
+                'trial_ends_at' => null,
+                'paused_at' => null,
+                'ends_at' => null,
+            ]
+        );
 
         SubscriptionCreated::dispatch($subscription, $payload);
     }
 
-    public function handleBillingSubscriptionActivated($payload)
+    protected function handleBillingSubscriptionActivated($payload)
     {
         $resource = $payload['resource'];
 
@@ -90,7 +94,7 @@ class WebhookController extends Controller
         SubscriptionActivated::dispatch($subscription, $payload);
     }
 
-    public function handleBillingSubscriptionExpired($payload)
+    protected function handleBillingSubscriptionExpired($payload)
     {
         $resource = $payload['resource'];
 
@@ -106,15 +110,15 @@ class WebhookController extends Controller
         SubscriptionExpired::dispatch($subscription, $payload);
     }
 
-    public function handleBillingSubscriptionCancelled($payload)
+    protected function handleBillingSubscriptionCancelled($payload)
     {
         $resource = $payload['resource'];
-        $paypalSubscription = new PaypalSubscription($payload['resource']);
 
         if (! $subscription = $this->findSubscription($resource['id'])) {
             return;
         }
 
+        $paypalSubscription = new PaypalSubscription($payload['resource']);
         $subscription->status = $resource['status'];
         $subscription->paused_at = null;
         $subscription->ends_at = $subscription->onTrial() ? $subscription->trial_ends_at : $paypalSubscription->nextBillingTime();
@@ -123,7 +127,7 @@ class WebhookController extends Controller
         SubscriptionCancelled::dispatch($subscription, $payload);
     }
 
-    public function handleBillingSubscriptionSuspended($payload)
+    protected function handleBillingSubscriptionSuspended($payload)
     {
         $resource = $payload['resource'];
 
@@ -139,7 +143,7 @@ class WebhookController extends Controller
         SubscriptionPaused::dispatch($subscription, $payload);
     }
 
-    public function handleBillingSubscriptionPaymentFailed($payload)
+    protected function handleBillingSubscriptionPaymentFailed($payload)
     {
         $resource = $payload['resource'];
 
@@ -151,18 +155,66 @@ class WebhookController extends Controller
         $subscription->save();
     }
 
-    public function subscriptionExists($paypalId)
+    protected function handlePaymentSaleCompleted($payload)
+    {
+        if ($sale = $this->handlePaymentSaleUpdated($payload)) {
+            SaleCompleted::dispatch($sale, $payload);
+        }
+    }
+
+    protected function handlePaymentSaleRefunded($payload)
+    {
+        if ($sale = $this->handlePaymentSaleUpdated($payload)) {
+            SaleRefunded::dispatch($sale, $payload);
+        }
+    }
+
+    protected function handlePaymentSaleReversed($payload)
+    {
+        if ($sale = $this->handlePaymentSaleUpdated($payload)) {
+            SaleReversed::dispatch($sale, $payload);
+        }
+    }
+
+    protected function handlePaymentSaleUpdated($payload)
+    {
+        $resource = $payload['resource'];
+        $ba_id = $resource['billing_agreement_id'];
+
+        $subscription = $this->findSubscription($ba_id);
+
+        if (! $subscription) {
+            return null;
+        }
+
+        $billable = $subscription->billable;
+
+        return $billable->sales()->updateOrCreate(
+            [
+                'paypal_id' => $resource['id'],
+            ],
+            [
+                'paypal_subscription_id' => $ba_id,
+                'amount' => $resource['amount']['total'],
+                'currency' => $resource['amount']['currency'],
+                'state' => $resource['state'],
+                'created_at' => Carbon::parse($resource['create_time']),
+            ]
+        );
+    }
+
+    protected function subscriptionExists($paypalId)
     {
         return Cashier::$subscriptionModel::where('paypal_id', $paypalId)->exists();
     }
 
-    public function findSubscription($paypalId)
+    protected function findSubscription($paypalId)
     {
         return Cashier::$subscriptionModel::firstWhere('paypal_id', $paypalId);
     }
 
-    public function findBillable($email)
+    protected function findBillable($email)
     {
-        return Cashier::findBillable($email);
+        return Cashier::$customerModel::where('email', $email)->first()?->billable;
     }
 }
