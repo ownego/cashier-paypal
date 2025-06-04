@@ -12,8 +12,8 @@ return new class extends Migration
         Schema::create((new Cashier::$subscriptionModel)->getTable(), function (Blueprint $table) {
             $table->id();
             $table->morphs('billable');
+            $table->string('type')->default('default');
             $table->string('paypal_id')->unique();
-            $table->string('paypal_product_id');
             $table->string('paypal_plan_id');
             $table->string('status');
             $table->unsignedInteger('quantity');
