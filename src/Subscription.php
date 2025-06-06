@@ -130,38 +130,29 @@ class Subscription extends Model
     /**
      * Update quantity
      */
-    public function updateQuantity($quantity, $options = []): ?RedirectResponse
+    public function updateQuantity($quantity, $options = [])
     {
-        $payload = ['quantity' => $quantity];
+        $response = $this->updatePaypalSubscription(['quantity' => $quantity]);
 
-        if ($options) {
-            $payload['application_context'] = [
-                'return_url' => $options['success_url'],
-                'cancel_url' => $options['cancel_url'],
-            ];
-        }
-
-        return $this->redirect($this->updatePaypalSubscription($payload));
+        $this->forceFill([
+            'quantity' => $response['quantity'],
+        ])->save();
     }
 
     /**
      * Swap plan
      */
-    public function swap($planId, $quantity = 1, $options = []): ?RedirectResponse
+    public function swap($planId, $quantity = 1)
     {
-        $payload = [
+        $response = $this->updatePaypalSubscription([
             'plan_id' => $planId,
             'quantity' => $quantity,
-        ];
+        ]);
 
-        if ($options) {
-            $payload['application_context'] = [
-                'return_url' => $options['success_url'],
-                'cancel_url' => $options['cancel_url'],
-            ];
-        }
-
-        return $this->redirect($this->updatePaypalSubscription($payload));
+        $this->forceFill([
+            'paypal_plan_id' => $response['plan_id'],
+            'quantity' => $response['quantity'],
+        ]);
     }
 
     /**
