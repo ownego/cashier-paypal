@@ -114,7 +114,7 @@ class Subscription extends Model
     /**
      * Increment quantity
      */
-    public function incrementQuantity($quantity = 1, $options = []): RedirectResponse
+    public function incrementQuantity($quantity = 1, $options = []): RedirectResponse|static
     {
         return $this->updateQuantity($this->quantity + $quantity, $options);
     }
@@ -122,7 +122,7 @@ class Subscription extends Model
     /**
      * Decrement quantity
      */
-    public function decrementQuantity($quantity = 1, $options = []): RedirectResponse
+    public function decrementQuantity($quantity = 1, $options = []): RedirectResponse|static
     {
         return $this->updateQuantity($this->quantity - $quantity, $options);
     }
@@ -130,29 +130,47 @@ class Subscription extends Model
     /**
      * Update quantity
      */
-    public function updateQuantity($quantity, $options = [])
+    public function updateQuantity($quantity, $options = []): RedirectResponse|static
     {
-        $response = $this->updatePaypalSubscription(['quantity' => $quantity]);
+        $payload = array_merge([
+            'quantity' => $quantity,
+        ], $this->parseOptions($options));
+
+        $response = $this->updatePaypalSubscription($payload);
+
+        if ($redirect = $this->redirect($response)) {
+            return $redirect;
+        }
 
         $this->forceFill([
             'quantity' => $response['quantity'],
         ])->save();
+
+        return $this;
     }
 
     /**
      * Swap plan
      */
-    public function swap($planId, $quantity = 1)
+    public function swap($planId, $quantity = 1, $options = []): RedirectResponse|static
     {
-        $response = $this->updatePaypalSubscription([
+        $payload = array_merge([
             'plan_id' => $planId,
             'quantity' => $quantity,
-        ]);
+        ], $this->parseOptions($options));
+
+        $response = $this->updatePaypalSubscription($payload);
+
+        if ($redirect = $this->redirect($response)) {
+            return $redirect;
+        }
 
         $this->forceFill([
             'paypal_plan_id' => $response['plan_id'],
             'quantity' => $response['quantity'],
         ]);
+
+        return $this;
     }
 
     /**
@@ -236,6 +254,26 @@ class Subscription extends Model
         }
 
         return redirect($link['href']);
+    }
+
+    public function parseOptions(array $options): array
+    {
+        $payload = [
+            'application_context' => [
+                'brand_name' => config('cashier.brand_name'),
+                'locale' => config('cashier.locale'),
+            ],
+        ];
+
+        if (isset($options['success_url'])) {
+            $payload['application_context']['return_url'] = $options['success_url'];
+        }
+
+        if (isset($options['cancel_url'])) {
+            $payload['application_context']['cancel_url'] = $options['cancel_url'];
+        }
+
+        return $payload;
     }
 
     public function hasPlan(string $planId): bool
